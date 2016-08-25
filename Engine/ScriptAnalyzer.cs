@@ -32,6 +32,7 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.Collections;
 using System.Diagnostics;
+using System.Text;
 
 namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
 {
@@ -50,6 +51,7 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
         List<Regex> includeRegexList;
         List<Regex> excludeRegexList;
         bool suppressedOnly;
+        private ItemIgnorer ignoreHandler;
 #if !PSV3
         ModuleDependencyHandler moduleHandler;
 #endif
@@ -500,6 +502,13 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             {
                 throw new ArgumentNullException("outputWriter");
             }
+            if (path == null)
+            {
+                throw new ArgumentNullException("path");
+            }
+
+            this.ignoreHandler = new ItemIgnorer(path.CurrentLocation.Path);
+
 #if !PSV3
             this.moduleHandler = null;
 #endif
@@ -1263,6 +1272,14 @@ namespace Microsoft.Windows.PowerShell.ScriptAnalyzer
             this.BuildScriptPathList(path, searchRecursively, scriptFilePaths);
             foreach (string scriptFilePath in scriptFilePaths)
             {
+                if (ignoreHandler.Test(scriptFilePath))
+                {
+                    StringBuilder sb = new StringBuilder();
+                    sb.Append("Ignoring file: ");
+                    sb.Append(scriptFilePath);
+                    outputWriter.WriteVerbose(sb.ToString());
+                    continue;
+                }
                 // Yield each record in the result so that the
                 // caller can pull them one at a time
                 foreach (var diagnosticRecord in this.AnalyzeFile(scriptFilePath))
